@@ -13,14 +13,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Build (cold/warm timed)
+      - name: Build release (timed)
         run: |
-          echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
+          start=$SECONDS
           cargo build --release
-          echo "BUILD_END=$(date +%s)" >> "$GITHUB_ENV"
+          echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
-        run: echo "rust-cache build took $((BUILD_END - BUILD_START))s"
+        run: echo "rust-cache build took ${BUILD_SECS:-unknown}s"
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
   sccache:
@@ -32,16 +32,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: mozilla-actions/sccache-action@v0.0.9
-      - name: Build (cold/warm timed)
+      - name: Build release (timed)
         env:
           RUSTC_WRAPPER: sccache
         run: |
-          echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
+          start=$SECONDS
           cargo build --release
-          echo "BUILD_END=$(date +%s)" >> "$GITHUB_ENV"
+          echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
-        run: echo "sccache build took $((BUILD_END - BUILD_START))s"
+        run: echo "sccache build took ${BUILD_SECS:-unknown}s"
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
   kache:
@@ -53,14 +53,14 @@ jobs:
       - uses: kunobi-ninja/kache-action@v1
         with:
           pr-comment: "false"
-      - name: Build (cold/warm timed)
+      - name: Build release (timed)
         run: |
-          echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
+          start=$SECONDS
           cargo build --release
-          echo "BUILD_END=$(date +%s)" >> "$GITHUB_ENV"
+          echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
-        run: echo "kache build took $((BUILD_END - BUILD_START))s"
+        run: echo "kache build took ${BUILD_SECS:-unknown}s"
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
   boxington:
@@ -70,14 +70,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: jdx/mr-boxington-action@v1
-      - name: Build (cold/warm timed)
+      - name: Build release (timed)
         run: |
-          echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
+          start=$SECONDS
           mbx build --release
-          echo "BUILD_END=$(date +%s)" >> "$GITHUB_ENV"
+          echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
-        run: echo "boxington build took $((BUILD_END - BUILD_START))s"
+        run: echo "boxington build took ${BUILD_SECS:-unknown}s"
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
   cargo-blob-cache:
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly-2026-09-17
       - name: Restore cargo blob cache
         uses: actions/cache@v4
         with:
@@ -95,16 +95,18 @@ jobs:
           key: cargo-blob-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             cargo-blob-${{ runner.os }}-
-      - name: Build with feature cargo (cold/warm timed)
+      - name: Build with feature cargo (timed)
         run: |
+          rustup set profile minimal
+          rustup component add rust-src --toolchain nightly-2026-09-17-x86_64-unknown-linux-gnu || true
           chmod +x tools/cargo/cargo
           tools/cargo/cargo --version
-          echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
+          start=$SECONDS
           tools/cargo/cargo build --release
-          echo "BUILD_END=$(date +%s)" >> "$GITHUB_ENV"
+          echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
-        run: echo "cargo-blob-cache build took $((BUILD_END - BUILD_START))s"
+        run: echo "cargo-blob-cache build took ${BUILD_SECS:-unknown}s"
       - name: Blob store stats
         if: always()
         run: |
