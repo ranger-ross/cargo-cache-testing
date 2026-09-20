@@ -14,7 +14,7 @@ jobs:
     name: no-cache (baseline)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo fetch --locked
       - name: Build release (timed)
@@ -31,7 +31,7 @@ jobs:
     name: rust-cache (Swatinem)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo fetch --locked
@@ -51,9 +51,9 @@ jobs:
     env:
       SCCACHE_GHA_ENABLED: "true"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
-      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: mozilla-actions/sccache-action@v0.0.11
       - run: cargo fetch --locked
       - name: Build release (timed)
         env:
@@ -71,7 +71,7 @@ jobs:
     name: kache
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: kunobi-ninja/kache-action@v1
         with:
@@ -91,7 +91,7 @@ jobs:
     name: mr-boxington
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: jdx/mr-boxington-action@v1
       - run: cargo fetch --locked
@@ -109,7 +109,7 @@ jobs:
     name: cargo-build-cache (new feature)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rust-src
