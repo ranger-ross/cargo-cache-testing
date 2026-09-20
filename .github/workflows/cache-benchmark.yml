@@ -109,9 +109,9 @@ jobs:
         with:
           path: |
             ~/.cargo/build-cache
-          key: cargo-build-cache-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          key: cargo-build-cache-v2-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            cargo-build-cache-${{ runner.os }}-
+            cargo-build-cache-v2-${{ runner.os }}-
       - name: Build with feature cargo (timed)
         env:
           RUSTUP_AUTO_INSTALL: "0"
