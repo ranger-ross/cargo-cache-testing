@@ -98,6 +98,8 @@ jobs:
           restore-keys: |
             cargo-blob-${{ runner.os }}-
       - name: Build with feature cargo (timed)
+        env:
+          RUSTUP_AUTO_INSTALL: "0"
         run: |
           rustup set profile minimal
           rustup component add rust-src --toolchain nightly-2026-09-17-x86_64-unknown-linux-gnu || true
