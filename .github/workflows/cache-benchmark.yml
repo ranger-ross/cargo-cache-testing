@@ -113,6 +113,9 @@ jobs:
           restore-keys: |
             cargo-build-cache-${{ runner.os }}-
       - name: Build with feature cargo (timed)
+        env:
+          RUSTUP_AUTO_INSTALL: "0"
+          RUSTUP_TOOLCHAIN: stable-x86_64-unknown-linux-gnu
         run: |
           chmod +x tools/cargo/cargo
           tools/cargo/cargo --version
