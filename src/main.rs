@@ -105,8 +105,9 @@ async fn main() -> anyhow::Result<()> {
     let _ = axum::http::StatusCode::OK;
     let _ = sqlx::sqlite::SqliteConnectOptions::new();
     let _ = diesel::sqlite::SqliteConnection::establish(":memory:").is_ok();
-    let _ = tarpc::client::Config::default;
-    let _ = aws_config::BehaviorVersion::latest();
+    let _ = rsa::pkcs8::DecodePrivateKey::from_pkcs8_der as fn(&[u8]) -> Result<rsa::RsaPrivateKey, _>;
+    let _ = jsonwebtoken::Algorithm::HS256;
+    let _ = argon2::Argon2::default;
     let values: Vec<u64> = futures::future::join_all((0..8).map(|i| async move { i * i }))
         .await
         .into_iter()
