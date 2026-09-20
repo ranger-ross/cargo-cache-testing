@@ -96,30 +96,22 @@ jobs:
         run: echo "boxington build took ${BUILD_SECS:-unknown}s"
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
-  cargo-blob-cache:
-    name: cargo-blob-cache (new feature)
+  cargo-build-cache:
+    name: cargo-build-cache (new feature)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: nightly-2026-09-17
-      - name: Restore cargo blob cache
+      - name: Restore cargo build cache
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/blobs
-            ~/.cargo/.global-cache
-          key: cargo-blob-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+            ~/.cargo/build-cache
+          key: cargo-build-cache-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            cargo-blob-${{ runner.os }}-
+            cargo-build-cache-${{ runner.os }}-
       - name: Build with feature cargo (timed)
-        env:
-          RUSTUP_AUTO_INSTALL: "0"
-          RUSTUP_TOOLCHAIN: nightly-2026-09-17-x86_64-unknown-linux-gnu
         run: |
-          rustup set profile minimal
-          rustup component add rust-src --toolchain nightly-2026-09-17-x86_64-unknown-linux-gnu || true
           chmod +x tools/cargo/cargo
           tools/cargo/cargo --version
           start=$SECONDS
@@ -127,10 +119,10 @@ jobs:
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
-        run: echo "cargo-blob-cache build took ${BUILD_SECS:-unknown}s"
-      - name: Blob store stats
+        run: echo "cargo-build-cache build took ${BUILD_SECS:-unknown}s"
+      - name: Build cache stats
         if: always()
         run: |
-          du -sh ~/.cargo/blobs 2>/dev/null || echo "no blob dir"
-          ls ~/.cargo/blobs 2>/dev/null | wc -l
+          du -sh ~/.cargo/build-cache 2>/dev/null || echo "no build-cache dir"
+          find ~/.cargo/build-cache -type f 2>/dev/null | wc -l
       - run: ./target/release/cargo-cache-testing --url https://example.com
