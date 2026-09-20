@@ -1,0 +1,113 @@
+name: cache-benchmark
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  rust-cache:
+    name: rust-cache (Swatinem)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build (cold/warm timed)
+        run: |
+          echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
+          cargo build --release
+          echo "BUILD_END=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Report build time
+        if: always()
+        run: echo "rust-cache build took $((BUILD_END - BUILD_START))s"
+      - run: ./target/release/cargo-cache-testing --url https://example.com
+
+  sccache:
+    name: sccache
+    runs-on: ubuntu-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Build (cold/warm timed)
+        env:
+          RUSTC_WRAPPER: sccache
+        run: |
+          echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
+          cargo build --release
+          echo "BUILD_END=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Report build time
+        if: always()
+        run: echo "sccache build took $((BUILD_END - BUILD_START))s"
+      - run: ./target/release/cargo-cache-testing --url https://example.com
+
+  kache:
+    name: kache
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: kunobi-ninja/kache-action@v1
+        with:
+          pr-comment: "false"
+      - name: Build (cold/warm timed)
+        run: |
+          echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
+          cargo build --release
+          echo "BUILD_END=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Report build time
+        if: always()
+        run: echo "kache build took $((BUILD_END - BUILD_START))s"
+      - run: ./target/release/cargo-cache-testing --url https://example.com
+
+  boxington:
+    name: mr-boxington
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: jdx/mr-boxington-action@v1
+      - name: Build (cold/warm timed)
+        run: |
+          echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
+          mbx build --release
+          echo "BUILD_END=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Report build time
+        if: always()
+        run: echo "boxington build took $((BUILD_END - BUILD_START))s"
+      - run: ./target/release/cargo-cache-testing --url https://example.com
+
+  cargo-blob-cache:
+    name: cargo-blob-cache (new feature)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Restore cargo blob cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/blobs
+            ~/.cargo/.global-cache
+          key: cargo-blob-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-blob-${{ runner.os }}-
+      - name: Build with feature cargo (cold/warm timed)
+        run: |
+          chmod +x tools/cargo/cargo
+          tools/cargo/cargo --version
+          echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
+          tools/cargo/cargo build --release
+          echo "BUILD_END=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Report build time
+        if: always()
+        run: echo "cargo-blob-cache build took $((BUILD_END - BUILD_START))s"
+      - name: Blob store stats
+        if: always()
+        run: |
+          du -sh ~/.cargo/blobs 2>/dev/null || echo "no blob dir"
+          ls ~/.cargo/blobs 2>/dev/null | wc -l
+      - run: ./target/release/cargo-cache-testing --url https://example.com
