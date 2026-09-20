@@ -112,7 +112,7 @@ jobs:
           key: cargo-build-cache-v2-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             cargo-build-cache-v2-${{ runner.os }}-
-      - name: Build with feature cargo (timed)
+      - name: Fetch dependencies (timed)
         env:
           RUSTUP_AUTO_INSTALL: "0"
           RUSTUP_TOOLCHAIN: stable-x86_64-unknown-linux-gnu
@@ -120,11 +120,21 @@ jobs:
           chmod +x tools/cargo/cargo
           tools/cargo/cargo --version
           start=$SECONDS
+          tools/cargo/cargo fetch
+          echo "FETCH_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
+      - name: Build with feature cargo (timed)
+        env:
+          RUSTUP_AUTO_INSTALL: "0"
+          RUSTUP_TOOLCHAIN: stable-x86_64-unknown-linux-gnu
+        run: |
+          start=$SECONDS
           tools/cargo/cargo build --release
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
-        run: echo "cargo-build-cache build took ${BUILD_SECS:-unknown}s"
+        run: |
+          echo "cargo-build-cache fetch took ${FETCH_SECS:-unknown}s"
+          echo "cargo-build-cache build took ${BUILD_SECS:-unknown}s"
       - name: Build cache stats
         if: always()
         run: |
