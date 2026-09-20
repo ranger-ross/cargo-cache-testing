@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+
 jobs:
   no-cache:
     name: no-cache (baseline)
@@ -15,7 +19,7 @@ jobs:
       - name: Build release (timed)
         run: |
           start=$SECONDS
-          cargo build --release
+          cargo build --release --locked
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
@@ -32,7 +36,7 @@ jobs:
       - name: Build release (timed)
         run: |
           start=$SECONDS
-          cargo build --release
+          cargo build --release --locked
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
@@ -53,7 +57,7 @@ jobs:
           RUSTC_WRAPPER: sccache
         run: |
           start=$SECONDS
-          cargo build --release
+          cargo build --release --locked
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
@@ -72,7 +76,7 @@ jobs:
       - name: Build release (timed)
         run: |
           start=$SECONDS
-          cargo build --release
+          cargo build --release --locked
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
@@ -89,7 +93,7 @@ jobs:
       - name: Build release (timed)
         run: |
           start=$SECONDS
-          mbx build --release
+          mbx build --release --locked
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
@@ -128,7 +132,7 @@ jobs:
           RUSTUP_TOOLCHAIN: stable-x86_64-unknown-linux-gnu
         run: |
           start=$SECONDS
-          tools/cargo/cargo build --release
+          tools/cargo/cargo build --release --locked
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
