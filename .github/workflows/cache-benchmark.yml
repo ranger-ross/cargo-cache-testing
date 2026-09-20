@@ -6,6 +6,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  no-cache:
+    name: no-cache (baseline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build release (timed)
+        run: |
+          start=$SECONDS
+          cargo build --release
+          echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
+      - name: Report build time
+        if: always()
+        run: echo "no-cache build took ${BUILD_SECS:-unknown}s"
+      - run: ./target/release/cargo-cache-testing --url https://example.com
+
   rust-cache:
     name: rust-cache (Swatinem)
     runs-on: ubuntu-latest
