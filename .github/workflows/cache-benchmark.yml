@@ -100,10 +100,10 @@ jobs:
       - name: Build with feature cargo (timed)
         env:
           RUSTUP_AUTO_INSTALL: "0"
+          RUSTUP_TOOLCHAIN: nightly-2026-09-17-x86_64-unknown-linux-gnu
         run: |
           rustup set profile minimal
           rustup component add rust-src --toolchain nightly-2026-09-17-x86_64-unknown-linux-gnu || true
-          rustup override set nightly-2026-09-17
           chmod +x tools/cargo/cargo
           tools/cargo/cargo --version
           start=$SECONDS
