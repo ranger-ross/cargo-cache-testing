@@ -103,6 +103,7 @@ jobs:
         run: |
           rustup set profile minimal
           rustup component add rust-src --toolchain nightly-2026-09-17-x86_64-unknown-linux-gnu || true
+          rustup override set nightly-2026-09-17
           chmod +x tools/cargo/cargo
           tools/cargo/cargo --version
           start=$SECONDS
