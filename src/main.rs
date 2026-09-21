@@ -1,3 +1,8 @@
+//! This is a bunch of AI generated code just to stress the compiler
+//! There is no meaning behind it.
+
+#![allow(dead_code)]
+
 use anyhow::Context;
 use clap::Parser;
 use diesel::Connection as _;
@@ -38,10 +43,7 @@ struct B64Hasher;
 #[async_trait::async_trait]
 impl Hasher for B64Hasher {
     async fn hash(&self, input: &[u8]) -> String {
-        base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD,
-            input,
-        )
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, input)
     }
 }
 
@@ -105,7 +107,8 @@ async fn main() -> anyhow::Result<()> {
     let _ = axum::http::StatusCode::OK;
     let _ = sqlx::sqlite::SqliteConnectOptions::new();
     let _ = diesel::sqlite::SqliteConnection::establish(":memory:").is_ok();
-    let _ = rsa::pkcs8::DecodePrivateKey::from_pkcs8_der as fn(&[u8]) -> Result<rsa::RsaPrivateKey, _>;
+    let _ =
+        rsa::pkcs8::DecodePrivateKey::from_pkcs8_der as fn(&[u8]) -> Result<rsa::RsaPrivateKey, _>;
     let _ = jsonwebtoken::Algorithm::HS256;
     let _ = argon2::Argon2::default;
     let values: Vec<u64> = futures::future::join_all((0..8).map(|i| async move { i * i }))
