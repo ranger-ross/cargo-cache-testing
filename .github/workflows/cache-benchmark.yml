@@ -20,11 +20,17 @@ jobs:
       - name: Build release (timed)
         run: |
           start=$SECONDS
-          cargo build --release --locked
+          cargo build --release --locked --timings
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
         run: echo "no-cache build took ${BUILD_SECS:-unknown}s"
+      - name: Upload Cargo timing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-timings-no-cache
+          path: target/cargo-timings
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
   rust-cache:
@@ -38,11 +44,17 @@ jobs:
       - name: Build release (timed)
         run: |
           start=$SECONDS
-          cargo build --release --locked
+          cargo build --release --locked --timings
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
         run: echo "rust-cache build took ${BUILD_SECS:-unknown}s"
+      - name: Upload Cargo timing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-timings-rust-cache
+          path: target/cargo-timings
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
   sccache:
@@ -60,11 +72,17 @@ jobs:
           RUSTC_WRAPPER: sccache
         run: |
           start=$SECONDS
-          cargo build --release --locked
+          cargo build --release --locked --timings
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
         run: echo "sccache build took ${BUILD_SECS:-unknown}s"
+      - name: Upload Cargo timing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-timings-sccache
+          path: target/cargo-timings
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
   kache:
@@ -80,11 +98,17 @@ jobs:
       - name: Build release (timed)
         run: |
           start=$SECONDS
-          cargo build --release --locked
+          cargo build --release --locked --timings
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
         run: echo "kache build took ${BUILD_SECS:-unknown}s"
+      - name: Upload Cargo timing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-timings-kache
+          path: target/cargo-timings
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
   boxington:
@@ -98,11 +122,17 @@ jobs:
       - name: Build release (timed)
         run: |
           start=$SECONDS
-          mbx build --release --locked
+          mbx build --release --locked --timings
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
         run: echo "boxington build took ${BUILD_SECS:-unknown}s"
+      - name: Upload Cargo timing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-timings-boxington
+          path: target/cargo-timings
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
   cargo-build-cache:
@@ -137,13 +167,19 @@ jobs:
           RUSTUP_TOOLCHAIN: stable-x86_64-unknown-linux-gnu
         run: |
           start=$SECONDS
-          tools/cargo/cargo build --release --locked
+          tools/cargo/cargo build --release --locked --timings
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
         run: |
           echo "cargo-build-cache fetch took ${FETCH_SECS:-unknown}s"
           echo "cargo-build-cache build took ${BUILD_SECS:-unknown}s"
+      - name: Upload Cargo timing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-timings-cargo-build-cache
+          path: target/cargo-timings
       - name: Build cache stats
         if: always()
         run: |
