@@ -136,7 +136,7 @@ jobs:
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
   cargo-build-cache:
-    name: cargo-build-cache (new feature)
+    name: cargo build-cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
