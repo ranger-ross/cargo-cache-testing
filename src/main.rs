@@ -1,11 +1,12 @@
 //! This is a bunch of AI generated code just to stress the compiler
 //! There is no meaning behind it.
 
-#![allow(dead_code)]
+#![allow(dead_code, unused)]
 
 use anyhow::Context;
 use clap::Parser;
 use diesel::Connection as _;
+use diesel_migrations;
 use serde::{Deserialize, Serialize};
 
 #[derive(Parser, Debug)]
