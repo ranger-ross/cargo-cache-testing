@@ -1,8 +1,8 @@
 # Cargo cache benchmarks
 
-The workflows compare no cache, Swatinem/rust-cache, sccache, kache,
-mr-boxington, native Cargo shared storage with actions/cache, and native Cargo
-shared storage with BuildBuddy.
+The workflows compare no cache, Swatinem/rust-cache, kache, mr-boxington,
+native Cargo shared storage with actions/cache, and native Cargo shared storage
+with BuildBuddy. sccache is excluded for now.
 
 - `cache-benchmark.yml` builds this repository and runs its command-line program.
 - `cache-benchmark-zed.yml` builds the Zed editor on Ubuntu.
@@ -101,7 +101,7 @@ fresh cache namespace. Existing caches from the old single-project workflow
 are not reused after this cutover.
 
 Configure the repository secret `BUILD_BUDDY_API_KEY` to include the BuildBuddy
-strategy. Without it, the workflow reports a notice and runs the other six
+strategy. Without it, the workflow reports a notice and runs the other five
 strategies. Public project checkout does not require an additional token.
 
 Each job reports fetch and build seconds and uploads a
