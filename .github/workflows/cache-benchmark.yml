@@ -135,22 +135,21 @@ jobs:
           path: target/cargo-timings
       - run: ./target/release/cargo-cache-testing --url https://example.com
 
-  cargo-build-cache:
-    name: cargo build-cache
+  native-rust-cache:
+    name: native (rust-cache)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rust-src
-      - name: Restore cargo build cache
+      - name: Restore native build cache
         uses: actions/cache@v6
         with:
-          path: |
-            ~/.cargo/build-cache
-          key: cargo-build-cache-v2-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          path: ~/.cargo/shared-storage
+          key: native-rust-cache-v3-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'tools/cargo/cargo') }}
           restore-keys: |
-            cargo-build-cache-v2-${{ runner.os }}-
+            native-rust-cache-v3-${{ runner.os }}-
       - name: Fetch dependencies (timed)
         env:
           RUSTUP_AUTO_INSTALL: "0"
@@ -159,30 +158,81 @@ jobs:
           chmod +x tools/cargo/cargo
           tools/cargo/cargo --version
           start=$SECONDS
-          tools/cargo/cargo fetch
+          tools/cargo/cargo fetch --locked
           echo "FETCH_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
-      - name: Build with feature cargo (timed)
+      - name: Build with native cache (timed)
         env:
           RUSTUP_AUTO_INSTALL: "0"
           RUSTUP_TOOLCHAIN: stable-x86_64-unknown-linux-gnu
         run: |
           start=$SECONDS
-          tools/cargo/cargo build --release --locked --timings
+          tools/cargo/cargo build --release --locked --timings -Zshared-blob-storage
           echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
       - name: Report build time
         if: always()
         run: |
-          echo "cargo-build-cache fetch took ${FETCH_SECS:-unknown}s"
-          echo "cargo-build-cache build took ${BUILD_SECS:-unknown}s"
+          echo "native (rust-cache) fetch took ${FETCH_SECS:-unknown}s"
+          echo "native (rust-cache) build took ${BUILD_SECS:-unknown}s"
       - name: Upload Cargo timing report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cargo-timings-cargo-build-cache
+          name: cargo-timings-native-rust-cache
           path: target/cargo-timings
       - name: Build cache stats
         if: always()
         run: |
-          du -sh ~/.cargo/build-cache 2>/dev/null || echo "no build-cache dir"
-          find ~/.cargo/build-cache -type f 2>/dev/null | wc -l
+          du -sh ~/.cargo/shared-storage 2>/dev/null || echo "no shared-storage dir"
+          find ~/.cargo/shared-storage -type f 2>/dev/null | wc -l
+      - run: ./target/release/cargo-cache-testing --url https://example.com
+
+  native-build-buddy:
+    name: native (build buddy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rust-src
+      - name: Fetch dependencies (timed)
+        env:
+          RUSTUP_AUTO_INSTALL: "0"
+          RUSTUP_TOOLCHAIN: stable-x86_64-unknown-linux-gnu
+        run: |
+          chmod +x tools/cargo/cargo
+          tools/cargo/cargo --version
+          start=$SECONDS
+          tools/cargo/cargo fetch --locked
+          echo "FETCH_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
+      - name: Build with BuildBuddy REAPI cache (timed)
+        env:
+          RUSTUP_AUTO_INSTALL: "0"
+          RUSTUP_TOOLCHAIN: stable-x86_64-unknown-linux-gnu
+          BUILD_BUDDY_API_KEY: ${{ secrets.BUILD_BUDDY_API_KEY }}
+        run: |
+          test -n "$BUILD_BUDDY_API_KEY"
+          start=$SECONDS
+          # Keep local artifacts on this runner only so later runs exercise REAPI.
+          tools/cargo/cargo build --release --locked --timings \
+            -Zshared-blob-storage \
+            --config 'cache.remote.url="grpcs://remote.buildbuddy.io"' \
+            --config 'cache.remote.instance-name="cargo-cache-testing"' \
+            --config 'cache.remote.api-key-env="BUILD_BUDDY_API_KEY"'
+          echo "BUILD_SECS=$((SECONDS - start))" >> "$GITHUB_ENV"
+      - name: Report build time
+        if: always()
+        run: |
+          echo "native (build buddy) fetch took ${FETCH_SECS:-unknown}s"
+          echo "native (build buddy) build took ${BUILD_SECS:-unknown}s"
+      - name: Upload Cargo timing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-timings-native-build-buddy
+          path: target/cargo-timings
+      - name: Build cache stats
+        if: always()
+        run: |
+          du -sh ~/.cargo/shared-storage 2>/dev/null || echo "no shared-storage dir"
+          find ~/.cargo/shared-storage -type f 2>/dev/null | wc -l
       - run: ./target/release/cargo-cache-testing --url https://example.com
