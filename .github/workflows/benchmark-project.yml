@@ -99,7 +99,7 @@ jobs:
           fingerprint = json.dumps([os.environ['REPOSITORY'], toolchain,
                                     os.environ['BUILD_ARGS'], os.environ['SETUP_COMMAND']], separators=(',', ':'))
           scope = f"benchmark-v1-{project}-{hashlib.sha256(fingerprint.encode()).hexdigest()[:16]}"
-          strategies = ['no-cache', 'rust-cache', 'kache', 'boxington', 'native-rust-cache']
+          strategies = ['no-cache', 'rust-cache', 'sccache', 'kache', 'boxington', 'native-rust-cache']
           if os.environ['BUILD_BUDDY_API_KEY']:
               strategies.append('native-build-buddy')
           else:
@@ -133,6 +133,8 @@ jobs:
       BENCHMARK_STRATEGY: ${{ matrix.strategy }}
       BUILD_ARGS: ${{ inputs.build-args }}
       CACHE_SCOPE: ${{ needs.resolve.outputs.scope }}
+      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_GHA_VERSION: ${{ needs.resolve.outputs.scope }}
     steps:
       - name: Check out benchmark tooling
         uses: actions/checkout@v7
@@ -171,6 +173,9 @@ jobs:
         with:
           prefix-key: ${{ env.CACHE_SCOPE }}-swatinem
           workspaces: project -> target
+      - name: Set up sccache
+        if: matrix.strategy == 'sccache'
+        uses: mozilla-actions/sccache-action@v0.0.11
       - name: Set up kache
         if: matrix.strategy == 'kache'
         uses: kunobi-ninja/kache-action@v1

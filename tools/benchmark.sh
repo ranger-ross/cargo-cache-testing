@@ -8,6 +8,11 @@ cache_args=()
 
 case "$strategy" in
   no-cache|rust-cache|kache) ;;
+  sccache)
+    if [[ "$phase" == build ]]; then
+      export RUSTC_WRAPPER=sccache
+    fi
+    ;;
   boxington)
     if [[ "$phase" == build ]]; then
       command=(mbx)
