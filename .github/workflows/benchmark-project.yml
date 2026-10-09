@@ -1,0 +1,234 @@
+name: benchmark-project
+
+on:
+  workflow_call:
+    inputs:
+      project:
+        description: Unique project slug used for cache and artifact names
+        required: true
+        type: string
+      repository:
+        description: Public repository to build (owner/repo)
+        required: true
+        type: string
+      ref:
+        description: Branch, tag, or commit (empty uses the default branch)
+        default: ""
+        type: string
+      toolchain:
+        description: Rust toolchain override (empty reads the project's toolchain file)
+        default: ""
+        type: string
+      build-args:
+        description: Whitespace-separated cargo build arguments (without shell quoting)
+        default: --release --locked
+        type: string
+      setup-command:
+        description: Bash setup script run in the project root before caching and building
+        default: ""
+        type: string
+      smoke-command:
+        description: Bash command run in the project root after a successful build
+        default: ""
+        type: string
+      runner:
+        default: ubuntu-24.04
+        type: string
+      timeout-minutes:
+        default: 60
+        type: number
+    secrets:
+      BUILD_BUDDY_API_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  resolve:
+    name: Resolve project revision
+    runs-on: ${{ inputs.runner }}
+    outputs:
+      sha: ${{ steps.project.outputs.sha }}
+      toolchain: ${{ steps.project.outputs.toolchain }}
+      components: ${{ steps.project.outputs.components }}
+      targets: ${{ steps.project.outputs.targets }}
+      scope: ${{ steps.project.outputs.scope }}
+      strategies: ${{ steps.project.outputs.strategies }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Resolve revision and benchmark settings
+        id: project
+        env:
+          PROJECT: ${{ inputs.project }}
+          REPOSITORY: ${{ inputs.repository }}
+          TOOLCHAIN: ${{ inputs.toolchain }}
+          BUILD_ARGS: ${{ inputs.build-args }}
+          SETUP_COMMAND: ${{ inputs.setup-command }}
+          BUILD_BUDDY_API_KEY: ${{ secrets.BUILD_BUDDY_API_KEY }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
+          import tomllib
+          from pathlib import Path
+
+          project = os.environ['PROJECT']
+          if not re.fullmatch(r'[a-z0-9][a-z0-9-]*', project):
+              raise SystemExit('project must contain lowercase letters, numbers, and hyphens')
+          settings = {}
+          if Path('rust-toolchain.toml').is_file():
+              settings = tomllib.loads(Path('rust-toolchain.toml').read_text())['toolchain']
+          elif Path('rust-toolchain').is_file():
+              text = Path('rust-toolchain').read_text().strip()
+              settings = tomllib.loads(text)['toolchain'] if text.startswith('[') else {'channel': text}
+          toolchain = os.environ['TOOLCHAIN'] or settings.get('channel', 'stable')
+          components = sorted(set(settings.get('components', [])) | {'rust-src'})
+          fingerprint = json.dumps([os.environ['REPOSITORY'], toolchain,
+                                    os.environ['BUILD_ARGS'], os.environ['SETUP_COMMAND']], separators=(',', ':'))
+          scope = f"benchmark-v1-{project}-{hashlib.sha256(fingerprint.encode()).hexdigest()[:16]}"
+          strategies = ['no-cache', 'rust-cache', 'sccache', 'kache', 'boxington', 'native-rust-cache']
+          if os.environ['BUILD_BUDDY_API_KEY']:
+              strategies.append('native-build-buddy')
+          else:
+              print('::notice::Skipping native-build-buddy because BUILD_BUDDY_API_KEY is not configured')
+          sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          outputs = {'sha': sha, 'toolchain': toolchain, 'components': ','.join(components),
+                     'targets': ','.join(settings.get('targets', [])), 'scope': scope,
+                     'strategies': json.dumps(strategies)}
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              for key, value in outputs.items():
+                  print(f'{key}={value}', file=output)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              print(f"Project: `{os.environ['REPOSITORY']}@{sha}`\n\nToolchain: `{toolchain}`", file=summary)
+          PY
+
+  benchmark:
+    name: ${{ inputs.project }} / ${{ matrix.strategy }}
+    needs: resolve
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        strategy: ${{ fromJSON(needs.resolve.outputs.strategies) }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: project
+    env:
+      RUSTUP_TOOLCHAIN: ${{ needs.resolve.outputs.toolchain }}
+      BENCHMARK_STRATEGY: ${{ matrix.strategy }}
+      BUILD_ARGS: ${{ inputs.build-args }}
+      CACHE_SCOPE: ${{ needs.resolve.outputs.scope }}
+      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_GHA_VERSION: ${{ needs.resolve.outputs.scope }}
+    steps:
+      - name: Check out benchmark tooling
+        uses: actions/checkout@v7
+        with:
+          path: harness
+          persist-credentials: false
+      - name: Check out project
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ needs.resolve.outputs.sha }}
+          path: project
+          persist-credentials: false
+      - name: Set up project
+        if: inputs.setup-command != ''
+        env:
+          SETUP_COMMAND: ${{ inputs.setup-command }}
+        run: bash -e -o pipefail -c "$SETUP_COMMAND"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ needs.resolve.outputs.toolchain }}
+          components: ${{ needs.resolve.outputs.components }}
+          targets: ${{ needs.resolve.outputs.targets }}
+      - name: Configure benchmark tooling
+        run: |
+          echo "NATIVE_CARGO=$GITHUB_WORKSPACE/harness/tools/cargo/cargo" >> "$GITHUB_ENV"
+          chmod +x "$GITHUB_WORKSPACE/harness/tools/cargo/cargo"
+          rustc --version
+          cargo --version
+          if [[ "$BENCHMARK_STRATEGY" == native-* ]]; then
+            "$GITHUB_WORKSPACE/harness/tools/cargo/cargo" --version
+          fi
+      - name: Restore Swatinem cache
+        if: matrix.strategy == 'rust-cache'
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ${{ env.CACHE_SCOPE }}-swatinem
+          workspaces: project -> target
+      - name: Set up sccache
+        if: matrix.strategy == 'sccache'
+        uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Set up kache
+        if: matrix.strategy == 'kache'
+        uses: kunobi-ninja/kache-action@v1
+        with:
+          pr-comment: "false"
+          cache-key-prefix: ${{ env.CACHE_SCOPE }}-kache
+      - name: Set up mr-boxington
+        if: matrix.strategy == 'boxington'
+        uses: jdx/mr-boxington-action@v1
+        with:
+          working-directory: project
+          cache-key: ${{ env.CACHE_SCOPE }}-mbx-${{ runner.os }}-${{ hashFiles('project/Cargo.lock') }}-${{ needs.resolve.outputs.sha }}
+          restore-keys: |
+            ${{ env.CACHE_SCOPE }}-mbx-${{ runner.os }}-${{ hashFiles('project/Cargo.lock') }}-
+            ${{ env.CACHE_SCOPE }}-mbx-${{ runner.os }}-
+          save-on-workflow-dispatch: "true"
+      - name: Restore native build cache
+        if: matrix.strategy == 'native-rust-cache'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/shared-storage
+          key: ${{ env.CACHE_SCOPE }}-native-${{ runner.os }}-${{ hashFiles('project/Cargo.lock', 'project/.cargo/config*', 'harness/tools/cargo/cargo') }}-${{ needs.resolve.outputs.sha }}
+          restore-keys: |
+            ${{ env.CACHE_SCOPE }}-native-${{ runner.os }}-${{ hashFiles('project/Cargo.lock', 'project/.cargo/config*', 'harness/tools/cargo/cargo') }}-
+            ${{ env.CACHE_SCOPE }}-native-${{ runner.os }}-
+      - name: Fetch dependencies (timed)
+        run: bash "$GITHUB_WORKSPACE/harness/tools/benchmark.sh" fetch
+      - name: Build release (timed)
+        env:
+          BUILD_BUDDY_API_KEY: ${{ secrets.BUILD_BUDDY_API_KEY }}
+        run: bash "$GITHUB_WORKSPACE/harness/tools/benchmark.sh" build
+      - name: Report build time
+        if: always()
+        run: |
+          echo "$BENCHMARK_STRATEGY fetch took ${FETCH_SECS:-unknown}s"
+          echo "$BENCHMARK_STRATEGY build took ${BUILD_SECS:-unknown}s"
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            printf '| Strategy | Fetch | Build |\n|---|---:|---:|\n| %s | %ss | %ss |\n' \
+              "$BENCHMARK_STRATEGY" "${FETCH_SECS:-unknown}" "${BUILD_SECS:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload Cargo timing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-timings-${{ inputs.project }}-${{ matrix.strategy }}
+          path: project/target/cargo-timings
+      - name: Build cache stats
+        if: always() && startsWith(matrix.strategy, 'native-')
+        run: |
+          du -sh ~/.cargo/shared-storage 2>/dev/null || echo "no shared-storage dir"
+          find ~/.cargo/shared-storage -type f 2>/dev/null | wc -l
+      - name: Run project smoke command
+        if: inputs.smoke-command != ''
+        env:
+          SMOKE_COMMAND: ${{ inputs.smoke-command }}
+        run: bash -e -o pipefail -c "$SMOKE_COMMAND"

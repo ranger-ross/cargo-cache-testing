@@ -1,0 +1,38 @@
+name: cache-benchmark-zed
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Zed branch, tag, or commit SHA
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    uses: ./.github/workflows/benchmark-project.yml
+    secrets: inherit
+    with:
+      project: zed
+      repository: zed-industries/zed
+      ref: ${{ inputs.ref || 'main' }}
+      runner: ubuntu-24.04
+      timeout-minutes: 180
+      build-args: --release --locked --package zed --bin zed
+      setup-command: |
+        # Free unused SDKs on the disposable hosted runner.
+        if [[ "${RUNNER_ENVIRONMENT:-}" == github-hosted ]]; then
+          sudo rm -rf -- /usr/local/lib/android/sdk /usr/share/dotnet
+        fi
+        # Install Zed's Linux dependencies and WASI SDK.
+        ./script/linux
+        ./script/download-wasi-sdk
+        printf '%s\n' 'CC=clang' 'CXX=clang++' >> "$GITHUB_ENV"
+      # Help exits before GUI startup.
+      smoke-command: ./target/release/zed --help
