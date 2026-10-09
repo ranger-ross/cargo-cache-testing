@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  benchmark:
+  b:
     uses: ./.github/workflows/benchmark-project.yml
     with:
       project: cargo-cache-testing
